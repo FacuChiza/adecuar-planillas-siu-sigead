@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Planillas SIU Guaraní</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="../static/images/icono.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="../static/images/icono.ico" type="image/x-icon">
+
+</head>
+<body>
+    <!-- Cabecera con logo institucional -->
+    <header>
+        <img src="{{ url_for('static', filename='images/logo_principal.jpg') }}" alt="Logo UTN" id="logo">
+    </header>
+
+    <!-- Título de la aplicación -->
+    <div class="split-heading">
+        <span>Adecuación de Planillas</span><br>
+        <span>SIGEAD - SIU Guaraní</span>
+    </div>
+    
+    <!-- Formulario para carga de archivos -->
+    <form action="/" method="post" enctype="multipart/form-data" id="upload-form">
+
+        <!-- Contenedor para mensajes de error mejorado -->
+        <div id="format-error-container"></div>
+        
+        <!-- Modal de requisitos que se mostrará junto con el error -->
+        <div id="requirements-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <h3>Requisitos del archivo Excel</h3>
+                <ul id="requirements-list">
+                    <li>El archivo debe ser formato .xls, .xlsx</li>
+                    <li>Debe contener las columnas: Legajo, Nota, Promocion, Apellido, Nombre, DNI, Edicion, Fecha de inicio y Facultad regional</li>
+                    <li>El archivo sólo debe contener la tabla con los datos, sin titulos o textos adicionales fuera de la tabla</li>
+                    <li>Solo se procesarán registros de la Facultad Regional "FRBA"</li>
+                </ul>
+                <div class="example-container">
+                    <h4>Ejemplo de formato correcto:</h4>
+                    <a href="#" id="example-image-link">
+                        <img id="example-image" src="{{ url_for('static', filename='images/ejemplo.png') }}" alt="Ejemplo de Excel válido">
+                    </a>
+                    <p class="image-caption">Haga clic en la imagen para ampliar</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Drop zone para carga de archivos -->
+        <div id="drop-zone">
+            <label for="file">
+                <span id="drop-text">Arrastrar y soltar archivo o hacer clic para seleccionar</span>
+            </label>
+            <input type="file" name="file" id="file" accept=".xls,.xlsx" required>
+            <div id="file-list">No hay archivo seleccionado</div>
+        </div>
+
+        <!-- Campos del formulario -->
+        <label for="campo1">Propuesta:</label>
+        <input type="text" name="campo1" id="campo1" required>
+
+        <label for="campo2">Comisión:</label>
+        <input type="text" name="campo2" id="campo2" required>
+
+        <label for="campo3">Actividad:</label>
+        <input type="text" name="campo3" id="campo3" required>
+
+        <label for="campo4">Periodo Lectivo:</label>
+        <input type="text" name="campo4" id="campo4" required>
+
+        <!-- Botón de envío -->
+        <button id="subir_archivo" type="submit">Subir Archivo</button>
+    </form>
+
+    <!-- Sección de descarga (inicialmente oculta) -->
+    <div id="download-section" style="display: none;">
+        <h3>Archivo subido: <span id="uploaded-file-name"></span></h3>
+        <h3>Archivos procesados disponibles para descarga:</h3>
+        <a id="download-alumnos" href="#" style="display: none;">
+            <button>Descargar Alumnos</button>
+        </a>
+        <a id="download-notas" href="#" style="display: none;">
+            <button>Descargar Notas</button>
+        </a>
+        <div style="margin-top: 20px;">
+            <!-- Nuevo botón para reiniciar el proceso -->
+            <button id="restart-button" type="button">Cargar Nuevo Archivo</button>
+        </div>
+    </div>
+
+    <!-- Script para la interactividad de la página -->
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+
+        // Referencias a elementos del DOM
+        const fileInput = document.getElementById("file");
+        const fileList = document.getElementById("file-list");
+        const dropZone = document.getElementById("drop-zone");
+        const errorContainer = document.getElementById("format-error-container");
+        const form = document.getElementById("upload-form");
+        const downloadSection = document.getElementById("download-section");
+        const restartButton = document.getElementById("restart-button");
+        const requirementsModal = document.getElementById("requirements-modal");
+        
+        // Campos del formulario para almacenar valores
+        const campo1 = document.getElementById("campo1");
+        const campo2 = document.getElementById("campo2");
+        const campo3 = document.getElementById("campo3");
+        const campo4 = document.getElementById("campo4");
+
+        // Cargar valores guardados si existen
+        loadSavedFormValues();
+
+        // Ocultar sección de descarga al inicio
+        downloadSection.style.display = "none";
+        requirementsModal.style.display = "none";
+
+        // Función para mostrar mensajes de error y requisitos
+        function showError(message) {
+            // Mostrar el mensaje de error
+            errorContainer.innerHTML = `
+                <div class="format-error">
+                    ${message}
+                    <button id="show-requirements" type="button">Ver requisitos de formato</button>
+                </div>
+            `;
+            errorContainer.style.display = "block";
+            errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Configurar el evento para mostrar el modal de requisitos
+            document.getElementById("show-requirements").addEventListener("click", function() {
+                requirementsModal.style.display = "block";
+            });
+            
+            // Configurar el evento para cerrar el modal
+            document.querySelector(".close-button").addEventListener("click", function() {
+                requirementsModal.style.display = "none";
+            });
+            
+            // Cerrar el modal si se hace clic fuera de él
+            window.addEventListener("click", function(event) {
+                if (event.target == requirementsModal) {
+                    requirementsModal.style.display = "none";
+                }
+            });
+            
+            // Configurar la imagen de ejemplo para que se amplíe al hacer clic
+            document.getElementById("example-image-link").addEventListener("click", function(e) {
+                e.preventDefault();
+                
+                // Crear un lightbox para la imagen
+                const lightbox = document.createElement("div");
+                lightbox.id = "lightbox";
+                lightbox.style.position = "fixed";
+                lightbox.style.top = "0";
+                lightbox.style.left = "0";
+                lightbox.style.width = "100%";
+                lightbox.style.height = "100%";
+                lightbox.style.backgroundColor = "rgba(0,0,0,0.8)";
+                lightbox.style.display = "flex";
+                lightbox.style.justifyContent = "center";
+                lightbox.style.alignItems = "center";
+                lightbox.style.zIndex = "1000";
+                
+                const img = document.createElement("img");
+                img.src = document.getElementById("example-image").src;
+                img.style.maxWidth = "90%";
+                img.style.maxHeight = "90%";
+                img.style.border = "2px solid white";
+                
+                lightbox.appendChild(img);
+                document.body.appendChild(lightbox);
+                
+                lightbox.addEventListener("click", function() {
+                    document.body.removeChild(lightbox);
+                });
+            });
+        }
+
+        // Función para ocultar mensajes de error
+        function hideError() {
+            errorContainer.innerHTML = "";
+            errorContainer.style.display = "none";
+        }
+
+        // Detectar selección de archivo con input file
+        fileInput.addEventListener("change", function() {
+            handleFileSelection(this.files);
+        });
+
+        // Configuración de eventos para drag and drop
+        ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
+            dropZone.addEventListener(eventName, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // Añadir resaltado cuando se arrastra sobre la Drop Zone
+        ["dragenter", "dragover"].forEach(eventName => {
+            dropZone.addEventListener(eventName, function() {
+                dropZone.classList.add("drag-over");
+            }, false);
+        });
+
+        // Quitar resaltado cuando se sale de la Drop Zone
+        ["dragleave", "drop"].forEach(eventName => {
+            dropZone.addEventListener(eventName, function() {
+                dropZone.classList.remove("drag-over");
+            }, false);
+        });
+
+        // Manejar archivo soltado
+        dropZone.addEventListener("drop", function(event) {
+            let files = event.dataTransfer.files;
+            fileInput.files = files; // Asignar el archivo al input file
+            handleFileSelection(files);
+        });
+
+        // Validar y procesar el archivo seleccionado
+        function handleFileSelection(files) {
+            if (files.length > 0) {
+                let fileName = files[0].name;
+                let fileExtension = fileName.split('.').pop().toLowerCase();
+                
+                if (fileExtension === 'xls' || fileExtension === 'xlsx') {
+                    fileList.innerText = `📄 Archivo seleccionado: ${fileName}`;
+                    dropZone.classList.add("file-loaded");
+                    hideError();
+                } else {
+                    fileList.innerText = "No hay archivo seleccionado";
+                    dropZone.classList.remove("file-loaded");
+                    showError("El formato del archivo no es válido. Por favor, seleccione un archivo Excel (.xls o .xlsx)");
+                    fileInput.value = "";
+                }
+            } else {
+                fileList.innerText = "No hay archivo seleccionado";
+                dropZone.classList.remove("file-loaded");
+                hideError();
+            }
+        }
+
+        // Guardar valores del formulario en localStorage
+        function saveFormValues() {
+            const formValues = {
+                campo1: campo1.value,
+                campo2: campo2.value,
+                campo3: campo3.value,
+                campo4: campo4.value
+            };
+            localStorage.setItem('formValues', JSON.stringify(formValues));
+        }
+
+        // Cargar valores guardados del formulario
+        function loadSavedFormValues() {
+            // Verificar si estamos en una recarga de página o después de procesar un archivo
+            const isPageRefresh = !sessionStorage.getItem('formSubmitted');
+            
+            if (isPageRefresh) {
+                // Si es una recarga de página, limpiar los campos
+                campo1.value = '';
+                campo2.value = '';
+                campo3.value = '';
+                campo4.value = '';
+                // Limpiar localStorage también
+                localStorage.removeItem('formValues');
+            } else {
+                // Si venimos después de procesar un archivo, cargar valores guardados
+                const savedValues = localStorage.getItem('formValues');
+                if (savedValues) {
+                    const formValues = JSON.parse(savedValues);
+                    campo1.value = formValues.campo1 || '';
+                    campo2.value = formValues.campo2 || '';
+                    campo3.value = formValues.campo3 || '';
+                    campo4.value = formValues.campo4 || '';
+                }
+            }
+            
+            // Resetear la bandera de formulario enviado al cargar la página
+            sessionStorage.removeItem('formSubmitted');
+        }
+
+        // Validación al enviar el formulario
+        form.addEventListener("submit", function(event) {
+            event.preventDefault(); // Evitar recarga de la página
+            
+            // Validar que se haya seleccionado un archivo
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showError("Debe seleccionar un archivo para continuar");
+                return;
+            }
+
+            // Guardar valores del formulario
+            saveFormValues();
+            
+            // Establecer la bandera de formulario enviado
+            sessionStorage.setItem('formSubmitted', 'true');
+
+            // Enviar los datos del formulario
+            let formData = new FormData(this);
+            
+            fetch("/", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    hideError();
+                    form.style.display = "none";
+                    downloadSection.style.display = "block";
+                    
+                    // Actualizar elementos de descarga
+                    document.getElementById("uploaded-file-name").textContent = data.uploaded_filename;
+
+                    let alumnosLink = document.getElementById("download-alumnos");
+                    alumnosLink.href = data.processed_file_alumnos;
+                    alumnosLink.style.display = "inline-block";
+
+                    let notasLink = document.getElementById("download-notas");
+                    notasLink.href = data.processed_file_notas;
+                    notasLink.style.display = "inline-block";
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                showError("Ocurrió un error al procesar su solicitud. Por favor, inténtelo de nuevo.");
+            });
+        });
+
+        // Evento para el botón de reinicio
+        restartButton.addEventListener("click", function() {
+            // Restaurar formulario
+            form.style.display = "block";
+            downloadSection.style.display = "none";
+            
+            // Limpiar el input file
+            fileInput.value = "";
+            fileList.innerText = "No hay archivo seleccionado";
+            dropZone.classList.remove("file-loaded");
+            
+            // Ocultar mensajes de error
+            hideError();
+            
+            // Mantener la bandera de formulario enviado
+            // (No hacemos sessionStorage.removeItem('formSubmitted') aquí)
+            
+            // Hacer scroll al inicio del formulario
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    </script>
+</body>
+</html>

@@ -9,11 +9,9 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
 # Configuración de carpetas y extensiones permitidas
-UPLOAD_FOLDER = "uploads"
-PROCESSED_FOLDER = "processed"
+UPLOAD_FOLDER = "/tmp/uploads"
+PROCESSED_FOLDER = "/tmp/processed"
 ALLOWED_EXTENSIONS = {"xls", "xlsx"}
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["PROCESSED_FOLDER"] = PROCESSED_FOLDER
 
 # Crear carpetas si no existen
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -40,21 +38,21 @@ def upload_file():
         if not allowed_file(file.filename):
             return jsonify({"error": "Archivo con formato incorrecto"}), 400
 
-        # Guardar el archivo cargado
+        # Guardar el archivo cargado en /tmp/
         filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(file_path)
 
         # Obtener datos del formulario
-        propuesta = request.form.get('campo1')
-        comision = request.form.get('campo2')
-        actividad = request.form.get('campo3')
-        periodo_lectivo = request.form.get('campo4')
+        propuesta = request.form.get('campo1', '')
+        comision = request.form.get('campo2', '')
+        actividad = request.form.get('campo3', '')
+        periodo_lectivo = request.form.get('campo4', '')
 
         try:
             # Leer el archivo Excel
             df = pd.read_excel(file_path)
-            
+
             # Renombrar columnas para facilitar el procesamiento
             df.columns = ['Legajo', 'Nota', 'Promocion', 'Apellido', 'Nombre', 'DNI', 
                          'Edicion', 'Fecha_de_inicio', 'Facultad_regional']
@@ -74,18 +72,18 @@ def upload_file():
             subir_alumnos_df['Actividad'] = actividad
             subir_alumnos_df['Periodo Lectivo'] = periodo_lectivo
 
-            # Guardar archivo de alumnos
+            # Guardar archivo de alumnos en /tmp/
             subir_alumnos_filename = f"Subir_Alumnos_{comision}_{actividad}.csv"
-            processed_file_alumnos = os.path.join(app.config['PROCESSED_FOLDER'], subir_alumnos_filename)
+            processed_file_alumnos = os.path.join(PROCESSED_FOLDER, subir_alumnos_filename)
             subir_alumnos_df.to_csv(processed_file_alumnos, index=False, encoding="utf-8")
 
             # Crear DataFrame para subir notas
             subir_notas_df = df[['DNI', 'Nota']].copy()
             subir_notas_df['CONCAT'] = "DNI " + subir_notas_df['DNI'].astype(str) + "," + subir_notas_df['Nota'].astype(str)
 
-            # Guardar archivo de notas
+            # Guardar archivo de notas en /tmp/
             subir_notas_filename = f"Subir_Notas_{comision}_{actividad}.csv"
-            processed_file_notas = os.path.join(app.config['PROCESSED_FOLDER'], subir_notas_filename)
+            processed_file_notas = os.path.join(PROCESSED_FOLDER, subir_notas_filename)
             subir_notas_df.to_csv(processed_file_notas, index=False, quoting=csv.QUOTE_ALL, sep=',')
 
             # Devolver respuesta JSON con los archivos procesados
@@ -99,7 +97,7 @@ def upload_file():
         except Exception as e:
             # En caso de error durante el procesamiento
             traceback.print_exc()  # Imprimir el error en la consola del servidor
-            return jsonify({"error": "Archivo con formato incorrecto"}), 500
+            return jsonify({"error": "Error en el procesamiento del archivo"}), 500
     
     # Si es GET, renderizar la plantilla principal
     return render_template('index.html')
@@ -115,6 +113,3 @@ def download_file():
     else:
         flash('Archivo no encontrado', 'error')
         return redirect(url_for('upload_file'))
-
-if __name__ == '__main__':
-    app.run(debug=True)

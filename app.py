@@ -11,7 +11,7 @@ app = Flask(__name__)
 # Configuración de carpetas y extensiones permitidas
 UPLOAD_FOLDER = "/tmp/uploads"
 PROCESSED_FOLDER = "/tmp/processed"
-ALLOWED_EXTENSIONS = {"xls", "xlsx"}
+ALLOWED_EXTENSIONS = {"xlsx"}
 
 # Crear carpetas si no existen
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

@@ -51,7 +51,7 @@ def upload_file():
 
         try:
             # Leer el archivo Excel
-            df = pd.read_excel(file_path, usecols=range(9))
+            df = pd.read_excel(file_path)
 
             # Renombrar columnas para facilitar el procesamiento
             df.columns = ['Legajo', 'Nota', 'Promocion', 'Apellido', 'Nombre', 'DNI', 'Edicion', 'Fecha_de_inicio', 'Facultad_regional']
@@ -61,7 +61,7 @@ def upload_file():
             df = df[pd.to_numeric(df['Nota'], errors='coerce').notna()]
             
             # Eliminar columnas innecesarias
-            df = df.drop(columns=['Legajo', 'Promocion', 'Apellido', 'Nombre', 'Edicion', 'Fecha_de_inicio', 'Facultad_regional'])
+            df = df.drop(columns=['Legajo', 'Promocion', 'Apellido', 'Nombre', 'Edicion', 'Fecha_de_inicio', 'Facultad_regional', 'J-Z'])
 
             # Crear DataFrame para subir alumnos
             subir_alumnos_df = df[['DNI']].copy()

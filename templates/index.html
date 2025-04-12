@@ -215,11 +215,10 @@
         // Manejar archivo soltado
         dropZone.addEventListener("drop", function(event) {
             let files = event.dataTransfer.files;
-            fileInput.files = files; // Asignar el archivo al input file
+            fileInput.files = files;
             handleFileSelection(files);
         });
 
-        // Validar y procesar el archivo seleccionado
         function handleFileSelection(files) {
             if (files.length > 0) {
                 let fileName = files[0].name;
@@ -242,7 +241,6 @@
             }
         }
 
-        // Guardar valores del formulario en localStorage
         function saveFormValues() {
             const formValues = {
                 campo1: campo1.value,
@@ -253,21 +251,16 @@
             localStorage.setItem('formValues', JSON.stringify(formValues));
         }
 
-        // Cargar valores guardados del formulario
         function loadSavedFormValues() {
-            // Verificar si estamos en una recarga de página o después de procesar un archivo
             const isPageRefresh = !sessionStorage.getItem('formSubmitted');
             
             if (isPageRefresh) {
-                // Si es una recarga de página, limpiar los campos
                 campo1.value = '';
                 campo2.value = '';
                 campo3.value = '';
                 campo4.value = '';
-                // Limpiar localStorage también
                 localStorage.removeItem('formValues');
             } else {
-                // Si venimos después de procesar un archivo, cargar valores guardados
                 const savedValues = localStorage.getItem('formValues');
                 if (savedValues) {
                     const formValues = JSON.parse(savedValues);
@@ -278,27 +271,22 @@
                 }
             }
             
-            // Resetear la bandera de formulario enviado al cargar la página
             sessionStorage.removeItem('formSubmitted');
         }
 
         // Validación al enviar el formulario
         form.addEventListener("submit", function(event) {
-            event.preventDefault(); // Evitar recarga de la página
+            event.preventDefault();
             
-            // Validar que se haya seleccionado un archivo
             if (!fileInput.files || fileInput.files.length === 0) {
                 showError("Debe seleccionar un archivo para continuar");
                 return;
             }
 
-            // Guardar valores del formulario
             saveFormValues();
             
-            // Establecer la bandera de formulario enviado
             sessionStorage.setItem('formSubmitted', 'true');
 
-            // Enviar los datos del formulario
             let formData = new FormData(this);
             
             fetch("/", {
@@ -314,7 +302,7 @@
                     form.style.display = "none";
                     downloadSection.style.display = "block";
                     
-                    // Actualizar elementos de descarga
+                   
                     document.getElementById("uploaded-file-name").textContent = data.uploaded_filename;
 
                     let alumnosLink = document.getElementById("download-alumnos");
@@ -343,13 +331,8 @@
             fileList.innerText = "No hay archivo seleccionado";
             dropZone.classList.remove("file-loaded");
             
-            // Ocultar mensajes de error
             hideError();
             
-            // Mantener la bandera de formulario enviado
-            // (No hacemos sessionStorage.removeItem('formSubmitted') aquí)
-            
-            // Hacer scroll al inicio del formulario
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
